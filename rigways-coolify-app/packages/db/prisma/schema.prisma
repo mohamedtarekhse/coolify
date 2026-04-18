@@ -1,0 +1,353 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Client {
+  id            String               @id @default(cuid())
+  clientCode    String               @unique
+  name          String
+  nameAr        String?
+  industry      String?
+  contact       String?
+  email         String?
+  phone         String?
+  country       String?
+  city          String?
+  status        ClientStatus         @default(active)
+  contractStart DateTime?
+  contractEnd   DateTime?
+  notes         String?              @db.Text
+  color         String               @default("#0070f2")
+  users         User[]
+  locations     FunctionalLocation[]
+  assets        Asset[]
+  certificates  Certificate[]
+  jobs          Job[]
+  files         CertificateFile[]
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+}
+
+model User {
+  id                String                @id @default(cuid())
+  username          String                @unique
+  name              String
+  nameAr            String?
+  role              UserRole              @default(user)
+  clientId          String?
+  passwordHash      String
+  isActive          Boolean               @default(true)
+  lastLoginAt       DateTime?
+  client            Client?               @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  uploadedCerts     Certificate[]         @relation("CertificateUploadedBy")
+  reviewedCerts     Certificate[]         @relation("CertificateReviewedBy")
+  notifications     Notification[]
+  pushSubscriptions PushSubscription[]
+  uploadedFiles     CertificateFile[]
+  createdJobs       Job[]                 @relation("JobCreatedBy")
+  finishedJobs      Job[]                 @relation("JobFinishedBy")
+  closedJobs        Job[]                 @relation("JobClosedBy")
+  reopenedJobs      Job[]                 @relation("JobReopenedBy")
+  jobEvents         JobEvent[]
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+}
+
+model FunctionalLocation {
+  id         String                   @id @default(cuid())
+  flCode     String                   @unique
+  name       String
+  type       FunctionalLocationType
+  status     FunctionalLocationStatus @default(active)
+  clientId   String?
+  notes      String?                  @db.Text
+  client     Client?                  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  assets     Asset[]
+  jobs       Job[]
+  createdAt  DateTime                 @default(now())
+  updatedAt  DateTime                 @updatedAt
+}
+
+model Inspector {
+  id               String             @id @default(cuid())
+  inspectorNumber  String             @unique
+  name             String
+  title            String?
+  email            String?            @unique
+  phone            String?
+  status           InspectorStatus    @default(active)
+  experienceYears  Int?
+  experienceDesc   String?            @db.Text
+  cvFile           String?
+  cvUrl            String?
+  color            String             @default("#0070f2")
+  education        Json?
+  trainings        Json?
+  trainingCerts    Json?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  jobInspectors    JobInspector[]
+  certificates     Certificate[]
+}
+
+model Asset {
+  id                   String        @id @default(cuid())
+  assetNumber          String        @unique
+  name                 String
+  assetType            AssetType
+  status               AssetStatus   @default(operation)
+  clientId             String?
+  functionalLocationId String?
+  serialNumber         String?
+  manufacturer         String?
+  model                String?
+  description          String?       @db.Text
+  notes                String?       @db.Text
+  client               Client?       @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  functionalLocation   FunctionalLocation? @relation(fields: [functionalLocationId], references: [id], onDelete: SetNull)
+  certificates         Certificate[]
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+}
+
+model Certificate {
+  id               String              @id @default(cuid())
+  certNumber       String              @unique
+  name             String
+  certType         CertificateType
+  assetId          String
+  clientId         String?
+  inspectorId      String?
+  issuedBy         String
+  relatedStandard  String?
+  issueDate        DateTime
+  expiryDate       DateTime
+  fileName         String?
+  fileUrl          String?
+  notes            String?             @db.Text
+  approvalStatus   ApprovalStatus      @default(pending)
+  rejectionReason  String?             @db.Text
+  uploadedById     String?
+  reviewedById     String?
+  reviewedAt       DateTime?
+  asset            Asset               @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  client           Client?             @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  inspector        Inspector?          @relation(fields: [inspectorId], references: [id], onDelete: SetNull)
+  uploadedBy       User?               @relation("CertificateUploadedBy", fields: [uploadedById], references: [id], onDelete: SetNull)
+  reviewedBy       User?               @relation("CertificateReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+  history          CertificateHistory[]
+  files            CertificateFile[]
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+}
+
+model CertificateHistory {
+  id              String           @id @default(cuid())
+  certificateId   String
+  certNumber      String?
+  name            String?
+  certType        CertificateType?
+  relatedStandard String?
+  assetId         String?
+  clientId        String?
+  issuedBy        String?
+  issueDate       DateTime?
+  expiryDate      DateTime?
+  approvalStatus  ApprovalStatus?
+  fileName        String?
+  fileUrl         String?
+  actionType      String
+  changedById     String?
+  snapshotJson    Json?
+  certificate     Certificate      @relation(fields: [certificateId], references: [id], onDelete: Cascade)
+  changedAt       DateTime         @default(now())
+}
+
+model CertificateFile {
+  id            String           @id @default(cuid())
+  certificateId String
+  clientId      String?
+  jobNumber     String?
+  certType      CertificateType?
+  fileName      String
+  fileSize      BigInt?
+  mimeType      String?
+  storageKey    String           @unique
+  versionNo     Int              @default(1)
+  isCurrent     Boolean          @default(false)
+  status        FileRecordStatus @default(active)
+  scanStatus    FileScanStatus   @default(pending)
+  uploadedById  String?
+  uploadedAt    DateTime         @default(now())
+  deletedAt     DateTime?
+  certificate   Certificate      @relation(fields: [certificateId], references: [id], onDelete: Cascade)
+  client        Client?          @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  uploadedBy    User?            @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+}
+
+model Notification {
+  id         String   @id @default(cuid())
+  userId     String
+  type       String
+  title      String
+  body       String?  @db.Text
+  refType    String?
+  refId      String?
+  isRead     Boolean  @default(false)
+  readAt     DateTime?
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+}
+
+model PushSubscription {
+  id         String   @id @default(cuid())
+  userId     String
+  endpoint   String
+  p256dh     String
+  auth       String
+  userAgent  String?
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([userId, endpoint])
+}
+
+model Job {
+  id                   String         @id @default(cuid())
+  jobNumber            String         @unique
+  clientId             String
+  functionalLocationId String?
+  title                String?
+  notes                String?        @db.Text
+  status               JobStatus      @default(active)
+  createdById          String?
+  finishedById         String?
+  closedById           String?
+  reopenedById         String?
+  finishedAt           DateTime?
+  closedAt             DateTime?
+  reopenedAt           DateTime?
+  client               Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  functionalLocation   FunctionalLocation? @relation(fields: [functionalLocationId], references: [id], onDelete: SetNull)
+  createdBy            User?          @relation("JobCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  finishedBy           User?          @relation("JobFinishedBy", fields: [finishedById], references: [id], onDelete: SetNull)
+  closedBy             User?          @relation("JobClosedBy", fields: [closedById], references: [id], onDelete: SetNull)
+  reopenedBy           User?          @relation("JobReopenedBy", fields: [reopenedById], references: [id], onDelete: SetNull)
+  inspectors           JobInspector[]
+  events               JobEvent[]
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+}
+
+model JobInspector {
+  id           String    @id @default(cuid())
+  jobId        String
+  inspectorId  String
+  assignedById String?
+  job          Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  inspector    Inspector @relation(fields: [inspectorId], references: [id], onDelete: Cascade)
+  assignedAt   DateTime  @default(now())
+
+  @@unique([jobId, inspectorId])
+}
+
+model JobEvent {
+  id          String   @id @default(cuid())
+  jobId       String
+  eventType   String
+  actorUserId String?
+  payloadJson Json?
+  job         Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  actorUser   User?    @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+}
+
+enum UserRole {
+  admin
+  manager
+  technician
+  user
+}
+
+enum ClientStatus {
+  active
+  inactive
+  suspended
+}
+
+enum FunctionalLocationType {
+  Rig
+  Workshop
+  Yard
+  Warehouse
+  Other
+}
+
+enum FunctionalLocationStatus {
+  active
+  inactive
+}
+
+enum InspectorStatus {
+  active
+  inactive
+}
+
+enum AssetType {
+  Hoisting_Equipment        @map("Hoisting Equipment")
+  Drilling_Equipment        @map("Drilling Equipment")
+  Mud_System_Low_Pressure   @map("Mud System Low Pressure")
+  Mud_System_High_Pressure  @map("Mud System High Pressure")
+  Wirelines
+  Structure
+  Well_Control              @map("Well Control")
+  Tubular
+}
+
+enum AssetStatus {
+  operation
+  stacked
+}
+
+enum CertificateType {
+  CAT_III      @map("CAT III")
+  CAT_IV       @map("CAT IV")
+  ORIGINAL_COC @map("ORIGINAL COC")
+  LOAD_TEST    @map("LOAD TEST")
+  LIFTING
+  NDT
+  TUBULAR
+}
+
+enum ApprovalStatus {
+  pending
+  approved
+  rejected
+}
+
+enum JobStatus {
+  active
+  technician_done
+  closed
+  reopened
+}
+
+enum FileRecordStatus {
+  active
+  deleted
+}
+
+enum FileScanStatus {
+  pending
+  clean
+  infected
+  failed
+}

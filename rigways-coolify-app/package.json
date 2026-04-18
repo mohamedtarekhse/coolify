@@ -1,0 +1,19 @@
+{
+  "name": "rigways-coolify-app",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev --workspace @rigways/web",
+    "dev:api": "npm run dev --workspace @rigways/api",
+    "dev:worker": "npm run dev --workspace @rigways/worker",
+    "build:web": "npm run build --workspace @rigways/web",
+    "build:api": "npm run build --workspace @rigways/api",
+    "build:worker": "npm run build --workspace @rigways/worker",
+    "build:shared": "npm run build --workspace @rigways/shared",
+    "build:db": "npm run build --workspace @rigways/db"
+  }
+}
